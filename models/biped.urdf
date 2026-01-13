@@ -1,0 +1,128 @@
+<?xml version="1.0"?>
+<robot name="simple_biped">
+
+  <!-- Torso -->
+  <link name="torso">
+    <visual>
+      <geometry>
+        <box size="0.2 0.1 0.4"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.2 0.1 0.4"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="10"/>
+      <inertia ixx="0.2" iyy="0.2" izz="0.1"/>
+    </inertial>
+  </link>
+
+  <!-- Left thigh -->
+  <link name="left_thigh">
+    <visual>
+      <geometry>
+        <capsule radius="0.04" length="0.3"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <capsule radius="0.04" length="0.3"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3"/>
+      <inertia ixx="0.05" iyy="0.05" izz="0.02"/>
+    </inertial>
+  </link>
+
+  <!-- Left shin -->
+  <link name="left_shin">
+    <visual>
+      <geometry>
+        <capsule radius="0.035" length="0.3"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <capsule radius="0.035" length="0.3"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="2"/>
+      <inertia ixx="0.04" iyy="0.04" izz="0.02"/>
+    </inertial>
+  </link>
+
+  <!-- Right thigh -->
+  <link name="right_thigh">
+    <visual>
+      <geometry>
+        <capsule radius="0.04" length="0.3"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <capsule radius="0.04" length="0.3"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3"/>
+      <inertia ixx="0.05" iyy="0.05" izz="0.02"/>
+    </inertial>
+  </link>
+
+  <!-- Right shin -->
+  <link name="right_shin">
+    <visual>
+      <geometry>
+        <capsule radius="0.035" length="0.3"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <capsule radius="0.035" length="0.3"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="2"/>
+      <inertia ixx="0.04" iyy="0.04" izz="0.02"/>
+    </inertial>
+  </link>
+
+  <!-- Joints -->
+  <joint name="left_hip" type="revolute">
+    <parent link="torso"/>
+    <child link="left_thigh"/>
+    <origin xyz="0 0.08 -0.2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5" upper="1.5" effort="100"/>
+  </joint>
+
+  <joint name="left_knee" type="revolute">
+    <parent link="left_thigh"/>
+    <child link="left_shin"/>
+    <origin xyz="0 0 -0.3"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5" upper="0.0" effort="100"/>
+  </joint>
+
+  <joint name="right_hip" type="revolute">
+    <parent link="torso"/>
+    <child link="right_thigh"/>
+    <origin xyz="0 -0.08 -0.2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5" upper="1.5" effort="100"/>
+  </joint>
+
+  <joint name="right_knee" type="revolute">
+    <parent link="right_thigh"/>
+    <child link="right_shin"/>
+    <origin xyz="0 0 -0.3"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5" upper="0.0" effort="100"/>
+  </joint>
+
+</robot>
