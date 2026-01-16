@@ -1,18 +1,13 @@
 <?xml version="1.0"?>
 <robot name="simple_biped">
 
-  <!-- Torso -->
+  <!-- ================= TORSO ================= -->
   <link name="torso">
     <visual>
-      <geometry>
-        <box size="0.2 0.1 0.4"/>
-      </geometry>
-      <origin xyz="0 0 0"/>
+      <geometry><box size="0.2 0.1 0.4"/></geometry>
     </visual>
     <collision>
-      <geometry>
-        <box size="0.2 0.1 0.4"/>
-      </geometry>
+      <geometry><box size="0.2 0.1 0.4"/></geometry>
     </collision>
     <inertial>
       <mass value="10"/>
@@ -20,85 +15,67 @@
     </inertial>
   </link>
 
-  <!-- Left thigh -->
+  <!-- ================= LEFT LEG ================= -->
   <link name="left_thigh">
-    <visual>
-      <geometry>
-        <capsule radius="0.04" length="0.3"/>
-      </geometry>
-    </visual>
-    <collision>
-      <geometry>
-        <capsule radius="0.04" length="0.3"/>
-      </geometry>
-    </collision>
-    <inertial>
-      <mass value="3"/>
-      <inertia ixx="0.05" iyy="0.05" izz="0.02"/>
-    </inertial>
+    <visual><geometry><capsule radius="0.04" length="0.3"/></geometry></visual>
+    <collision><geometry><capsule radius="0.04" length="0.3"/></geometry></collision>
+    <inertial><mass value="3"/><inertia ixx="0.05" iyy="0.05" izz="0.02"/></inertial>
   </link>
 
-  <!-- Left shin -->
   <link name="left_shin">
+    <visual><geometry><capsule radius="0.035" length="0.3"/></geometry></visual>
+    <collision><geometry><capsule radius="0.035" length="0.3"/></geometry></collision>
+    <inertial><mass value="2"/><inertia ixx="0.04" iyy="0.04" izz="0.02"/></inertial>
+  </link>
+
+  <link name="left_foot">
     <visual>
-      <geometry>
-        <capsule radius="0.035" length="0.3"/>
-      </geometry>
+      <geometry><box size="0.18 0.08 0.04"/></geometry>
     </visual>
     <collision>
-      <geometry>
-        <capsule radius="0.035" length="0.3"/>
-      </geometry>
+      <geometry><box size="0.18 0.08 0.04"/></geometry>
     </collision>
     <inertial>
-      <mass value="2"/>
-      <inertia ixx="0.04" iyy="0.04" izz="0.02"/>
+      <mass value="1"/>
+      <inertia ixx="0.01" iyy="0.01" izz="0.005"/>
     </inertial>
   </link>
 
-  <!-- Right thigh -->
+  <!-- ================= RIGHT LEG ================= -->
   <link name="right_thigh">
-    <visual>
-      <geometry>
-        <capsule radius="0.04" length="0.3"/>
-      </geometry>
-    </visual>
-    <collision>
-      <geometry>
-        <capsule radius="0.04" length="0.3"/>
-      </geometry>
-    </collision>
-    <inertial>
-      <mass value="3"/>
-      <inertia ixx="0.05" iyy="0.05" izz="0.02"/>
-    </inertial>
+    <visual><geometry><capsule radius="0.04" length="0.3"/></geometry></visual>
+    <collision><geometry><capsule radius="0.04" length="0.3"/></geometry></collision>
+    <inertial><mass value="3"/><inertia ixx="0.05" iyy="0.05" izz="0.02"/></inertial>
   </link>
 
-  <!-- Right shin -->
   <link name="right_shin">
+    <visual><geometry><capsule radius="0.035" length="0.3"/></geometry></visual>
+    <collision><geometry><capsule radius="0.035" length="0.3"/></geometry></collision>
+    <inertial><mass value="2"/><inertia ixx="0.04" iyy="0.04" izz="0.02"/></inertial>
+  </link>
+
+  <link name="right_foot">
     <visual>
-      <geometry>
-        <capsule radius="0.035" length="0.3"/>
-      </geometry>
+      <geometry><box size="0.18 0.08 0.04"/></geometry>
     </visual>
     <collision>
-      <geometry>
-        <capsule radius="0.035" length="0.3"/>
-      </geometry>
+      <geometry><box size="0.18 0.08 0.04"/></geometry>
     </collision>
     <inertial>
-      <mass value="2"/>
-      <inertia ixx="0.04" iyy="0.04" izz="0.02"/>
+      <mass value="1"/>
+      <inertia ixx="0.01" iyy="0.01" izz="0.005"/>
     </inertial>
   </link>
 
-  <!-- Joints -->
+  <!-- ================= JOINTS ================= -->
+
+  <!-- Left -->
   <joint name="left_hip" type="revolute">
     <parent link="torso"/>
     <child link="left_thigh"/>
     <origin xyz="0 0.08 -0.2"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.5" upper="1.5" effort="100"/>
+    <limit lower="-1.5" upper="1.5" effort="120"/>
   </joint>
 
   <joint name="left_knee" type="revolute">
@@ -106,15 +83,24 @@
     <child link="left_shin"/>
     <origin xyz="0 0 -0.3"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.5" upper="0.0" effort="100"/>
+    <limit lower="-1.5" upper="0.0" effort="120"/>
   </joint>
 
+  <joint name="left_ankle" type="revolute">
+    <parent link="left_shin"/>
+    <child link="left_foot"/>
+    <origin xyz="0 0 -0.3"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.6" upper="0.6" effort="80"/>
+  </joint>
+
+  <!-- Right -->
   <joint name="right_hip" type="revolute">
     <parent link="torso"/>
     <child link="right_thigh"/>
     <origin xyz="0 -0.08 -0.2"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.5" upper="1.5" effort="100"/>
+    <limit lower="-1.5" upper="1.5" effort="120"/>
   </joint>
 
   <joint name="right_knee" type="revolute">
@@ -122,7 +108,15 @@
     <child link="right_shin"/>
     <origin xyz="0 0 -0.3"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.5" upper="0.0" effort="100"/>
+    <limit lower="-1.5" upper="0.0" effort="120"/>
+  </joint>
+
+  <joint name="right_ankle" type="revolute">
+    <parent link="right_shin"/>
+    <child link="right_foot"/>
+    <origin xyz="0 0 -0.3"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.6" upper="0.6" effort="80"/>
   </joint>
 
 </robot>
