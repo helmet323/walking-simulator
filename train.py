@@ -1,18 +1,18 @@
 import os
-import glob
+import sys
 from datetime import datetime
 import numpy as np
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.utils import get_linear_fn
 
 from envs.biped_env import BipedEnv
 
-# =====================================================
-# Callback for logging & checkpointing
-# =====================================================
+# ========================== Callback ==========================
 class LoggingCallback(BaseCallback):
+    """Logs rewards, saves best models & periodic checkpoints"""
     def __init__(self, model_dir, print_freq=5000, save_freq=50000, smooth_window=20):
         super().__init__()
         self.model_dir = model_dir
@@ -29,13 +29,12 @@ class LoggingCallback(BaseCallback):
             if ep:
                 self.ep_rewards.append(ep["r"])
 
-        # Logging smoothed reward
+        # ---------- Smoothed reward logging ----------
         if self.ep_rewards and self.num_timesteps % self.print_freq == 0:
-            last_rewards = self.ep_rewards[-self.smooth_window:]
-            avg = np.mean(last_rewards)
-            print(f"[Step {self.num_timesteps}] Smoothed AvgReward({len(last_rewards)}) = {avg:.2f}")
+            last = self.ep_rewards[-self.smooth_window:]
+            avg = float(np.mean(last))
+            print(f"[Step {self.num_timesteps}] Smoothed Reward = {avg:.2f}")
 
-            # Save best model
             if avg > self.best_mean:
                 self.best_mean = avg
                 path = os.path.join(self.model_dir, "ppo_biped_best")
@@ -44,9 +43,9 @@ class LoggingCallback(BaseCallback):
                     self.training_env.save(path + "_vecnormalize.pkl")
                 except Exception:
                     pass
-                print(f"✓ Saved new BEST model ({avg:.2f})")
+                print(f"✓ Saved NEW BEST model ({avg:.2f})")
 
-        # Periodic checkpoint
+        # ---------- Periodic checkpoint ----------
         if self.num_timesteps % self.save_freq == 0:
             path = os.path.join(self.model_dir, f"ppo_biped_ckpt_{self.num_timesteps}")
             self.model.save(path)
@@ -54,21 +53,19 @@ class LoggingCallback(BaseCallback):
                 self.training_env.save(path + "_vecnormalize.pkl")
             except Exception:
                 pass
-            print(f"✓ Periodic checkpoint saved: {path}.zip")
+            print(f"✓ Checkpoint saved: {path}.zip")
 
         return True
 
-# =====================================================
-# Environment factory
-# =====================================================
+# ========================== Environment Factory ==========================
 def make_env(seed: int):
     def _init():
-        return BipedEnv(mode="direct", seed=seed)
+        env = BipedEnv(mode="direct", seed=seed)
+        env.reset(seed=seed)
+        return env
     return _init
 
-# =====================================================
-# Utility: get latest model by modification time
-# =====================================================
+# ========================== Utility: Latest Model ==========================
 def get_latest_model(model_dir="models"):
     if not os.path.exists(model_dir):
         return None
@@ -77,70 +74,98 @@ def get_latest_model(model_dir="models"):
         for f in os.listdir(model_dir)
         if f.endswith(".zip")
     ]
-    if not models:
-        return None
-    models.sort(key=os.path.getmtime)
-    return models[-1]
+    return max(models, key=os.path.getmtime) if models else None
 
-# =====================================================
-# Main training
-# =====================================================
+# ========================== Main Training ==========================
 if __name__ == "__main__":
     model_dir = "models"
     os.makedirs(model_dir, exist_ok=True)
 
-    # Multi-env setup
-    n_envs = 4
-    env = DummyVecEnv([make_env(i) for i in range(n_envs)])
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+    # ---------- Fresh training flag ----------
+    fresh = "--fresh" in sys.argv
 
-    # Load latest model if available
+    # ---------- Create vectorized environments ----------
+    n_envs = 4
+    venv = DummyVecEnv([make_env(i) for i in range(n_envs)])
+
+    # ---------- Load latest model & VecNormalize ----------
     latest_model = get_latest_model(model_dir)
     model = None
 
-    if latest_model:
+    if latest_model and not fresh:
         print(f"Found latest model: {latest_model}")
-        try:
-            model = PPO.load(latest_model, env=env)
-            vec_file = latest_model.replace(".zip", "_vecnormalize.pkl")
-            if os.path.exists(vec_file):
-                env.load(vec_file)
-                print("✓ Loaded VecNormalize stats")
-        except Exception as e:
-            print(f"⚠ Model incompatible with current environment. Reason: {e}")
-            print("Creating new model instead...")
-            model = None
+        vec_file = latest_model.replace(".zip", "_vecnormalize.pkl")
+        # ---------- Try loading VecNormalize ----------
+        if os.path.exists(vec_file):
+            try:
+                temp_vec = VecNormalize.load(vec_file, venv)
+                if temp_vec.observation_space.shape == venv.observation_space.shape:
+                    venv = temp_vec
+                    print("✓ Loaded VecNormalize stats")
+                else:
+                    print("⚠ VecNormalize shape mismatch, creating new")
+                    venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
+            except Exception:
+                print("⚠ Failed to load VecNormalize, creating new")
+                venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
+        else:
+            print("⚠ No VecNormalize stats found — creating new")
+            venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
 
-    # Create new model if none loaded
+        # ---------- Try loading PPO model ----------
+        try:
+            model = PPO.load(latest_model, env=venv)
+            print("✓ Model loaded successfully")
+        except Exception as e:
+            print(f"⚠ Model incompatible, creating new: {e}")
+            model = None
+    else:
+        print("🚀 Fresh training: ignoring old models & VecNormalize")
+        venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
+
+    # ---------- Training mode ----------
+    venv.training = True
+    venv.norm_reward = True
+
+    # ---------- Create new PPO model if needed ----------
     if model is None:
-        print("Creating NEW PPO model")
-        model = PPO(
-            "MlpPolicy",
-            env=env,
-            verbose=1,
-            learning_rate=2.5e-4,
-            n_steps=1024,
-            batch_size=64,
-            n_epochs=10,
+        print("🚀 Creating NEW PPO model")
+        lr_schedule = get_linear_fn(start=3e-4, end=1e-5, end_fraction=1.0)
+
+        policy_kwargs = dict(
+            net_arch=dict(pi=[256, 256, 128], vf=[256, 256, 128]),
         )
 
-    # Train with logging callback
+        model = PPO(
+            policy="MlpPolicy",
+            env=venv,
+            learning_rate=lr_schedule,
+            n_steps=2048,
+            batch_size=128,
+            n_epochs=15,
+            gamma=0.995,
+            gae_lambda=0.95,
+            clip_range=0.15,
+            ent_coef=0.005,
+            vf_coef=0.5,
+            max_grad_norm=0.5,
+            policy_kwargs=policy_kwargs,
+            verbose=1,
+        )
+
+    # ---------- Train ----------
     try:
         model.learn(
-            total_timesteps=300_000,
-            callback=LoggingCallback(model_dir=model_dir, print_freq=5000, save_freq=50_000),
+            total_timesteps=1_000_000,
+            callback=LoggingCallback(model_dir=model_dir, print_freq=5000, save_freq=50_000)
         )
     except KeyboardInterrupt:
-        print("Training interrupted by user")
+        print("⚠ Training interrupted by user")
 
-    # Save final model & VecNormalize stats
+    # ---------- Save final model ----------
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     final_path = os.path.join(model_dir, f"ppo_biped_{ts}")
     model.save(final_path)
-    try:
-        env.save(final_path + "_vecnormalize.pkl")
-    except Exception:
-        pass
-
+    venv.save(final_path + "_vecnormalize.pkl")
     print(f"✓ Final model saved: {final_path}.zip")
-    env.close()
+    venv.close()

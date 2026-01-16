@@ -4,28 +4,20 @@ import numpy as np
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-
 from envs.biped_env import BipedEnv
 
-
-# --------------------------------------------------
+# ---------------- Environment factory ----------------
 def make_env():
-    return BipedEnv(mode="gui", debug=False)
+    return BipedEnv(mode="gui")  # GUI mode for visualization
 
-
+# ---------------- Get latest trained model ----------------
 def get_latest_model(model_dir="models"):
-    models = [
-        os.path.join(model_dir, f)
-        for f in os.listdir(model_dir)
-        if f.endswith(".zip")
-    ]
-    if not models:
+    if not os.path.exists(model_dir):
         return None
-    models.sort(key=os.path.getmtime)
-    return models[-1]
+    models = [os.path.join(model_dir,f) for f in os.listdir(model_dir) if f.endswith(".zip")]
+    return max(models, key=os.path.getmtime) if models else None
 
-
-# --------------------------------------------------
+# ---------------- Main ----------------
 if __name__ == "__main__":
 
     latest = get_latest_model()
@@ -34,59 +26,39 @@ if __name__ == "__main__":
 
     print(f"🎯 Using model: {latest}")
 
-    # --------------------------------------------------
-    # Create GUI env FIRST (never closes)
-    # --------------------------------------------------
-    env = DummyVecEnv([make_env])
-    env = VecNormalize(
-        env,
-        norm_obs=True,
-        norm_reward=False,
-        training=False,
-        clip_obs=10.0,
-    )
+    # ---------------- Create VecEnv ----------------
+    venv = DummyVecEnv([make_env])
 
-    # --------------------------------------------------
-    # Load model SAFELY
-    # --------------------------------------------------
-    try:
-        model = PPO.load(latest, env=env)
-    except ValueError as e:
-        print("\n❌ MODEL / ENV MISMATCH")
-        print(e)
-        print("\n⚠ Retrain required. GUI kept open.")
-
-        env.reset()
-        while True:
-            time.sleep(1)
-
-    # --------------------------------------------------
-    # Load VecNormalize stats if compatible
-    # --------------------------------------------------
+    # ---------------- Load VecNormalize ----------------
     vec_file = latest.replace(".zip", "_vecnormalize.pkl")
     if os.path.exists(vec_file):
-        try:
-            env.load(vec_file)
-            print("✓ VecNormalize loaded")
-        except Exception:
-            print("⚠ VecNormalize mismatch (ignored)")
+        venv = VecNormalize.load(vec_file, venv)
+        print("✓ VecNormalize stats loaded")
+    else:
+        venv = VecNormalize(venv, norm_obs=True, norm_reward=False, clip_obs=10.0)
+        print("⚠ No VecNormalize found — running unnormalized")
 
-    print("🎥 Running visualization — Ctrl+C to exit")
+    venv.training = False
+    venv.norm_reward = False
 
-    obs = env.reset()
+    # ---------------- Load model ----------------
+    model = PPO.load(latest, env=venv)
+    print("✓ Model loaded successfully")
 
+    # ---------------- Viewer loop ----------------
+    obs = venv.reset()
     try:
         while True:
             action, _ = model.predict(obs, deterministic=True)
-            obs, rewards, dones, infos = env.step(action)
+            obs, rewards, dones, infos = venv.step(action)
 
             if np.any(dones):
-                obs = env.reset()
+                obs = venv.reset()
 
-            time.sleep(1 / 240)
+            time.sleep(1/240)  # match PyBullet physics timestep
 
     except KeyboardInterrupt:
-        print("\nExiting viewer")
+        print("\n👋 Viewer closed by user")
 
     finally:
-        env.close()
+        venv.close()
